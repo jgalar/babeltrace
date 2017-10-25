@@ -383,13 +383,13 @@ void handle_statedump_build_id_event(FILE *err, struct debug_info *debug_info,
 	uint64_t build_id_len;
 
 	ret = get_stream_event_context_int_field_value(err,
-			event, "_vpid", &vpid);
+			event, "vpid", &vpid);
 	if (ret) {
 		goto end;
 	}
 
 	ret = get_payload_unsigned_int_field_value(err,
-			event, "_baddr", &baddr);
+			event, "baddr", &baddr);
 	if (ret) {
 		BT_LOGE_STR("Failed to get unsigned int value for _vpid field.");
 		goto end;
@@ -411,7 +411,7 @@ void handle_statedump_build_id_event(FILE *err, struct debug_info *debug_info,
 		goto end;
 	}
 
-	ret = get_payload_build_id_field_value(err, event, "_build_id",
+	ret = get_payload_build_id_field_value(err, event, "build_id",
 			&bin->build_id, &build_id_len);
 	if (ret) {
 		BT_LOGE_STR("Failed to get _build_id field value.");
@@ -449,20 +449,20 @@ void handle_statedump_debug_link_event(FILE *err, struct debug_info *debug_info,
 	int ret;
 
 	ret = get_stream_event_context_int_field_value(err, event,
-			"_vpid", &vpid);
+			"vpid", &vpid);
 	if (ret) {
 		goto end;
 	}
 
 	ret = get_payload_unsigned_int_field_value(err,
-			event, "_baddr", &baddr);
+			event, "baddr", &baddr);
 	if (ret) {
-		BT_LOGE_STR("Failed to get unsigned int value for _baddr field.");
+		BT_LOGE_STR("Failed to get unsigned int value for baddr field.");
 		ret = -1;
 		goto end;
 	}
 
-	ret = get_payload_unsigned_int_field_value(err, event, "_crc32", &tmp);
+	ret = get_payload_unsigned_int_field_value(err, event, "crc32", &tmp);
 	if (ret) {
 		BT_LOGE_STR("Failed to get unsigned int value for _crc32 field.");
 		ret = -1;
@@ -471,7 +471,7 @@ void handle_statedump_debug_link_event(FILE *err, struct debug_info *debug_info,
 	crc32 = (uint32_t) tmp;
 
 	ret = get_payload_string_field_value(err,
-			event, "_filename", &filename);
+			event, "filename", &filename);
 	if (ret) {
 		BT_LOGE_STR("Failed to get string value for _filename field.");
 		ret = -1;
@@ -514,14 +514,14 @@ void handle_bin_info_event(FILE *err, struct debug_info *debug_info,
 	int ret;
 
 	ret = get_payload_unsigned_int_field_value(err,
-			event, "_baddr", &baddr);
+			event, "baddr", &baddr);
 	if (ret) {
-		BT_LOGE_STR("Failed to get unsigned int value for _baddr field.");
+		BT_LOGE_STR("Failed to get unsigned int value for baddr field.");
 		goto end;
 	}
 
 	ret = get_payload_unsigned_int_field_value(err,
-			event, "_memsz", &memsz);
+			event, "memsz", &memsz);
 	if (ret) {
 		BT_LOGE_STR("Failed to get unsigned int value for _memsz field.");
 		goto end;
@@ -532,7 +532,7 @@ void handle_bin_info_event(FILE *err, struct debug_info *debug_info,
 	 * lttng-ust 2.9.
 	 */
 	ret = get_payload_string_field_value(err,
-			event, "_path", &path);
+			event, "path", &path);
 	if (ret || !path) {
 		goto end;
 	}
@@ -541,7 +541,7 @@ void handle_bin_info_event(FILE *err, struct debug_info *debug_info,
 		uint64_t tmp;
 
 		ret = get_payload_unsigned_int_field_value(err,
-				event, "_is_pic", &tmp);
+				event, "is_pic", &tmp);
 		if (ret) {
 		BT_LOGE_STR("Failed to get unsigned int value for _is_pic field.");
 			ret = -1;
@@ -556,7 +556,7 @@ void handle_bin_info_event(FILE *err, struct debug_info *debug_info,
 		is_pic = true;
 	}
 
-	ret = get_stream_event_context_int_field_value(err, event, "_vpid",
+	ret = get_stream_event_context_int_field_value(err, event, "vpid",
 			&vpid);
 	if (ret) {
 		goto end;
@@ -628,14 +628,14 @@ void handle_lib_unload_event(FILE *err, struct debug_info *debug_info,
 	int ret;
 
 	ret = get_payload_unsigned_int_field_value(err,
-			event, "_baddr", &baddr);
+			event, "baddr", &baddr);
 	if (ret) {
-		BT_LOGE_STR("Failed to get unsigned int value for _baddr field.");
+		BT_LOGE_STR("Failed to get unsigned int value for baddr field.");
 		ret = -1;
 		goto end;
 	}
 
-	ret = get_stream_event_context_int_field_value(err, event, "_vpid",
+	ret = get_stream_event_context_int_field_value(err, event, "vpid",
 			&vpid);
 	if (ret) {
 		goto end;
@@ -663,7 +663,7 @@ void handle_statedump_start(FILE *err, struct debug_info *debug_info,
 	int ret;
 
 	ret = get_stream_event_context_int_field_value(err, event,
-			"_vpid", &vpid);
+			"vpid", &vpid);
 	if (ret) {
 		goto end;
 	}
