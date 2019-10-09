@@ -2,70 +2,84 @@ Hi everyone!
 
 We are happy to announce the release of Babeltrace 2.0.0-rc1.
 
-# What's new since 2.0-pre5?
-## New features
-### Source automatic discovery
+# What's new since Babeltrace 2.0-pre5?
 
-# Avant
+## Command-line interface
 
-This feature of the CLI and of the Python bindings allows the user to pass
-input strings (which can be of an arbitrary format understood by a particular
-component class, or paths to files/directories) and for babeltrace to figure
-out which source component classes are best suited to handle those inputs. To
-be considered in the automatic discovery process, component classes need to
-implement the `babeltrace.support-info` query. Source component classes that
-don't support it will not be able to automatically discover inputs, and will
-have to be explicitly instantiated using the `--component` option.
+### Automatic source component discovery
 
+With the new `convert` command's **automatic source component discovery**
+feature, specify a path, URI, or arbitrary string to let `babeltrace2` find the
+most appropriate components to use:
 
-# Après
+    $ babeltrace2 /path/to/ctf/trace
+    $ babeltrace2 net://localhost/host/myhost/my-session
 
-This new feature makes it possible for you to provide a path, URI, or an
-arbitrary string and let Babeltrace determine the component class that is
-best suited for that input configuration string. In effect, this allows you
-to omit the explicit `--component` option most of the time.
+This means you don't need to create an explicit component with the `--component`
+option most of the time.
 
-Behind the scenes, this feature makes use of the `babeltrace.support-info`
-query through which component classes can provide a confidence score
-indicating their ability to handle a given input string.
+Behind the scenes, this feature queries the `babeltrace.support-info` object
+from all known component classes: a component class can reply with a confidence
+score to indicate its ability to handle a given path or custom string. See
+the new `babeltrace2-query-babeltrace.support-info(7)` manual page.
 
-For instance, a CTF file-system source will attempt to interpret the
-user-provided string as a path and check for a CTF trace at that location.
-If a CTF trace is found, the source component class will report that it
-can handle that request and be elected as the source.
+For example, a `source.ctf.fs` (CTF trace directory source) component class
+replies to this query whether or not the given path looks like a CTF trace
+directory.
 
-While automatic source discovery is performed by the `babeltrace` client
-application, it is also possible to make use of the mechanism through
-the C and Python APIs making it easy to integrate this functionality into
-other tools.
+NOTE: Source component classes do not have to implement the
+`babeltrace.support-info` query. If a component class does not implement this
+query, it will not be considered by the automatic source component discovery
+algorithm. In that case, you must instantiate such a component class explicitly
+with the `--component` option.
 
-Note that source component classes do not have to implement the
-`babeltrace.support-info` query. When the query is left unimplemented, the
-source component class is not considered by the automatic discovery
-algorithm. If you wish to use a source component class that does not
-implement this query, the `--component` option has to be used explicitly.
+## Plugins
 
----
+### `sink.text.details` component class
+
+Print detailed information about all messages flowing through a trace
+processing graph using the **`sink.text.details`** component class.
+
+Components instantiated from this component class can be used to easily
+inspect messages flowing at any point of a graph and make it easy to test
+and troubleshoot other component classes.
+
+### Support for lttng-crash and malformed CTF traces
+
+A number of work-arounds were added to `src.ctf.fs` in order to
+transparently support non-compliant CTF traces produced by some versions of
+the LTTng-UST, LTTng-Modules, and barectf tracers.
+
+## Library and Python bindings
 
 ### Simple sink component class
-The goal of this new component class is to make it easy to process messages at
-the sink endpoint of a graph. The user may provide callback functions when
-instantiating a component of that class, which get called at various moments
-during the execution of the graph. These callbacks are:
 
+Implement a sink component class easily using the **simple sink component
+class** API. This interface reduces the boiler-plate code needed to implement a
+basic message consumer to a minimum. Just provide a consumption callback which
+will be invoked for each batch of messages received by the component.
+
+
+Other callbacks can optionally be implemented to support more complex use-cases:
   * Initialize (optional): Called once during the initialization phase of the
     graph.
-
-  * Consume: Called for each batch of messages received by the component. This
-    is where messages are processed.
 
   * Finalize (optional): Called once during the finalization phase of the
     graph.
 
 
+### Automatic source component discovery using TraceCollectionMessageIterator
+
+Integrate the same **automatic source component discovery** mechanism used by
+`babeltrace2` to a Python application using the `TraceCollectionMessageIterator`
+interface.
+
+
+
+
 ### Support for future CTF 2 field and field types
 Some new field classes were added to Babeltrace in order to support the new
-field types that are expected to be introduced by CTF 2.  These field classes
+field types that are expected to be introduced by CTF 2. These field classes
 are:
 
 * Boolean: Used to represent trivial boolean value.
@@ -79,15 +93,15 @@ are:
 
 ### User attributes
 The CTF 2 metadata is expected to contain user attributes, which are map values
-attached to the various objects (such as traces, streams and events). To
-support this, Babeltrace allows components to attach user-defined attributes to
-the various trace IR objects.
+attached to the various objects (such as traces, streams and events). To support
+this, Babeltrace allows components to attach user-defined attributes to the
+various trace IR objects.
 
 ### Error reporting API
 In case of error, the error reporting API allows the different actors of the
-library to precisely describe the chain of events that lead to that error. It
-is then possible for the library user to access this list of causes, which
-helps troubleshooting problems. This is similar to a stack trace carried by an
+library to precisely describe the chain of events that lead to that error. It is
+then possible for the library user to access this list of causes, which helps
+troubleshooting problems. This is similar to a stack trace carried by an
 exception object in other languages.
 
 When an error occurs when using the CLI, the error and all its causes are
@@ -122,17 +136,6 @@ will be increased so to express new requirements. Component classes can report
 which versions of the protocol they support, ensuring that all components in a
 graph understand each other.
 
-### `sink.text.details` component class
-Components of that class print information about all the messages they receive
-in a detailed and deterministic way. This is useful while developing and for
-testing other component classes.
-
-### Support for lttng-crash and malformed CTF traces
-Some versions of LTTng-UST, LTTng-Modules, and barectf tracers may produce, in
-some occasions, traces that are non-compliant with the CTF specification. The
-`src.ctf.fs` component class now fixes up those non-compliant traces as best it
-can so they can be read as the user would expect.
-
 ## API changes
 
 ### Const classes in `bt2` Python package
@@ -157,6 +160,18 @@ emit events.
 
 ### Rename VERBOSE log level to TRACE
 The VERBOSE log level has been renamed to TRACE.
+
+
+## Documentation
+
+
+
+
+
+
+
+
+
 
 # What's new since 1.5
 ## Trace processing graphs
