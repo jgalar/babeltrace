@@ -1,6 +1,6 @@
-Hi everyone!
+Hi everyone,
 
-We are happy to announce the release of Babeltrace 2.0.0-rc1.
+We are happy to announce the first Babeltrace 2.0.0 release candidate!
 
 # What's new since Babeltrace 2.0-pre5?
 
@@ -55,18 +55,14 @@ the LTTng-UST, LTTng-Modules, and barectf tracers.
 ### Simple sink component class
 
 Implement a sink component class easily using the **simple sink component
-class** API. This interface reduces the boiler-plate code needed to implement a
-basic message consumer to a minimum. Just provide a consumption callback which
-will be invoked for each batch of messages received by the component.
+class** API. This interface reduces to a minimum the boiler-plate code needed to
+implement a basic message consumer. Just provide a consumption callback
+(`consume`) which will be invoked for each batch of messages received by the
+component.
 
-
-Other callbacks can optionally be implemented to support more complex use-cases:
-  * Initialize (optional): Called once during the initialization phase of the
-    graph.
-
-  * Finalize (optional): Called once during the finalization phase of the
-    graph.
-
+Other callbacks can optionally be provided to support more complex use-cases:
+  * `initialize`, called once during the initialization phase of the graph.
+  * `finalize`, called once during the finalization phase of the graph.
 
 ### Automatic source component discovery using TraceCollectionMessageIterator
 
@@ -74,38 +70,46 @@ Integrate the same **automatic source component discovery** mechanism used by
 `babeltrace2` to a Python application using the `TraceCollectionMessageIterator`
 interface.
 
-
-
+Doing so ensures that any Python application using the `bt2` package can benefit
+from additional component classes installed on the system from the get go.
 
 ### Support for future CTF 2 field and field types
-Some new field classes were added to Babeltrace in order to support the new
-field types that are expected to be introduced by CTF 2. These field classes
-are:
 
-* Boolean: Used to represent trivial boolean value.
+New field classes were added to Babeltrace in order to support new field types
+expected to be introduced by CTF 2. These field classes are:
 
-* Bit array: Used to represent an array of bits. This is useful to represent
-  CPU status or flag register values. Unlike integer field classes, bit arrays
-  are not interpreted as numerical values.
+* **Boolean**
+  Represents a boolean value.
 
-* Option: Used to represent an optional field. It is equivalent to a variant
-  containing an arbitrary field and a second, zero-sized field.
+* **Bit array**
+  Represents an array of bits. Use it to express CPU status or flag register
+  values. Unlike integer field classes, bit arrays are not interpreted as
+  numerical values.
+
+* **Option**
+  Represents an optional field. Is equivalent to a variant containing an
+  arbitrary field and a second, zero-sized, field.
 
 ### User attributes
-The CTF 2 metadata is expected to contain user attributes, which are map values
-attached to the various objects (such as traces, streams and events). To support
-this, Babeltrace allows components to attach user-defined attributes to the
-various trace IR objects.
+
+The CTF 2 metadata format is expected to contain **user attributes**: map values
+attached to other objects such as traces, streams, and events. To support this,
+user-defined attributes can be associated to the various trace IR objects.
 
 ### Error reporting API
-In case of error, the error reporting API allows the different actors of the
-library to precisely describe the chain of events that lead to that error. It is
-then possible for the library user to access this list of causes, which helps
-troubleshooting problems. This is similar to a stack trace carried by an
-exception object in other languages.
 
-When an error occurs when using the CLI, the error and all its causes are
-printed:
+Provide rich error reporting using the new **error reporting API**.
+
+When an error is encountered, the error reporting API allows the various actors
+interacting through the `libbabeltrace2` library to precisely describe the chain
+of events that lead to that error. It is then possible for the library user to
+access this list of causes and reduce the time needed to troubleshoot problems.
+This is similar to the stack trace carried by exception objects in many
+programming languages.
+
+When an error occurs, `babeltrace2` uses the error reporting API to both
+report the top-level error itself, but also provides a detailed list of its
+causes:
 
 ```
 ERROR:    [Babeltrace CLI] (babeltrace2.c:2546)
@@ -127,54 +131,90 @@ CAUSED BY [src.demo.MyFirstSource (some-name): 'source.demo.MyFirstSource'] (bt2
   Exception
 ```
 
-### Message Interchange Protocol version
-As Babeltrace evolves, new concepts (message types, methods, message ordering
-requirements, etc.) may be added to the trace IR. To ensure forward and
-backward compatibility, the concept of Message Interchange Protocol (MIP) was
-introduced. When a breaking changes happen in the protocol, the MIP version
-will be increased so to express new requirements. Component classes can report
-which versions of the protocol they support, ensuring that all components in a
-graph understand each other.
-
-## API changes
-
-### Const classes in `bt2` Python package
-Since the Python language does not allow expressing the same const-correctness
-as the C API does, the Python classes representing the types of the API were
-split in const and non-const versions. Non-const versions of the object provide
-methods for mutating the objects, while the const versions do not.
-
 ### Co-installation with Babeltrace 1.x
-In order to facilitate the transition from Babeltrace 1.x to 2.x, the following
+
+In order to ease the transition from Babeltrace 1.x to 2.x, the following
 changes were made in order to make it possible to co-install both release
 series of Babeltrace:
-* Rename the CLI tool to `babeltrace2`.
-* Rename the include directory to `babeltrace2`.
-* Rename the library to `libbabeltrace2`.
+  * CLI tool renamed to `babeltrace2`.
+  * Include directory renamed to `babeltrace2`.
+  * Library renamed to `libbabeltrace2`.
 
-### Packets are now optional
-It's now optional for the streams of a given stream class to support the
-concept of packets. Sources that don't have the concept of
-grouping events into packets no longer have to create artificial packets to
-emit events.
+### Message Interchange Protocol versioning
 
-### Rename VERBOSE log level to TRACE
-The VERBOSE log level has been renamed to TRACE.
+Future-proof component classes using **Message Interchange Protocol versioning**.
+
+As Babeltrace evolves, new concepts such as message types, methods, and message
+ordering requirements are expected to be introduced in `libbabeltrace2`. To ensure
+forward and backward compatibility can be maintained across future releases of
+Babeltrace, the concept of Message Interchange Protocol (MIP) is introduced.
+
+If a breaking change is introduced to the protocol between components in
+a graph, the MIP version will be increased to announce the new interface.
+
+Component classes can report a range of supported MIP versions to ensure all
+components within a graph interact using the same protocol.
+
+### API Changes
+
+#### Const classes in `bt2` Python package
+
+`libbabeltrace2` uses `const` annotations to eliminate a number API of misuses.
+As the Python language does not allow expressing the same immutability constraints,
+the Python classes were split into constant and mutable variants of each class.
+Mutable variants of the classes provide methods to modify the objects whereas
+their constant counterpart do not.
+
+#### Packets are now optional
+
+Associating a packet to the streams of a stream class is now optional. Sources
+that don't have a concept of event groups no longer have to create artificial
+packets to emit events.
+
+#### Rename VERBOSE log level to TRACE
+
+The `VERBOSE` log level has been renamed to `TRACE`.
 
 
 ## Documentation
 
+Manual pages are finalized and reflect the changes introduced in this new release.
 
-
-
-
-
-
-
+* `babeltrace2(1)`
+* `babeltrace2-intro(7)`
+* `babeltrace2-convert(1)`
+* `babeltrace2-help(1)`
+* `babeltrace2-list-plugins(1)`
+* `babeltrace2-query(1)`
+* `babeltrace2-run(1)`
+---
+* `babeltrace2-query-babeltrace.support-info(7)`
+* `babeltrace2-query-babeltrace.trace-infos(7)`
+---
+* `babeltrace2-plugin-ctf(7)`
+* `babeltrace2-source.ctf.fs(7)`
+* `babeltrace2-source.ctf.lttng-live(7)`
+* `babeltrace2-sink.ctf.fs(7)`
+---
+* `babeltrace2-plugin-lttng-utils(7)`
+* `babeltrace2-filter.lttng-utils.debug-info(7)`
+---
+* `babeltrace2-plugin-text(7)`
+* `babeltrace2-source.text.dmesg(7)`
+* `babeltrace2-sink.text.details(7)`
+* `babeltrace2-sink.text.pretty(7)`
+---
+* `babeltrace2-plugin-utils(7)`
+* `babeltrace2-sink.utils.counter(7)`
+* `babeltrace2-sink.utils.dummy(7)`
+* `babeltrace2-filter.utils.muxer(7)`
+* `babeltrace2-filter.utils.trimmer(7)`
 
 
 # What's new since 1.5
+
 ## Trace processing graphs
+
 Babeltrace 2.0 introduces the concept of trace processing graphs. Such graphs
 consist of multiple reusable components connected together, which lets users
 address their various different trace reading and analyzing needs.
