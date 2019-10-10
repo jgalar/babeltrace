@@ -46,7 +46,7 @@ and troubleshoot other component classes.
 
 ### Support for lttng-crash and malformed CTF traces
 
-A number of work-arounds were added to `src.ctf.fs` in order to
+A number of work-arounds were added to `source.ctf.fs` in order to
 transparently support non-compliant CTF traces produced by some versions of
 the LTTng-UST, LTTng-Modules, and barectf tracers.
 
@@ -215,37 +215,47 @@ Manual pages are finalized and reflect the changes introduced in this new releas
 
 ## Trace processing graphs
 
-Babeltrace 2.0 introduces the concept of trace processing graphs. Such graphs
-consist of multiple reusable components connected together, which lets users
-address their various different trace reading and analyzing needs.
+Assemble components in a trace processing graph to easily manipulate traces.
+Trace processing graphs consist of multiple reusable components connected
+together, which lets users and applications implement a number of workflows
+involving tracing data.
 
 ## Provided component classes
 Babeltrace 2.0 provides the following component classes out of the box:
-* **CTF filesystem source (source.ctf.fs)**: Read CTF traces from the file system.
-* **LTTng live source (source.ctf.lttng-live)**: Read CTF traces from the network
-    using the `lttng-live` protocol.
-* **Dmesg source (source.text.dmesg)**: Read `dmesg`-style log file from the file
-    system or standard input.
-* **Trace trimmer (filter.utils.trimmer)**: Keep messages that occur within a
-    specific time range.
-* **Trace muxer (filter.utils.muxer)**: Sort messages from multiple sources to
-    a single output port by time.
-* **Debug information filter (filter.lttng-utils.debug-info)**: Augment compatible
-    events with debugging information.
-* **CTF filesystem sink (sink.ctf.fs)**: Write CTF traces to the file system.
-* **Text pretty-printer (sink.text.pretty)**: Pretty print messages.
-* **Dummy sink (sink.utils.dummy)**: Consume messages and discard them.
-* **Counter sink (sink.utils.counter)**: Count messages and print the results.
-* **Details sink (sink.text.details)**: Print messages with all available details.
+* **CTF file-system source (`source.ctf.fs`)**
+  Read CTF traces from the file-system.
+* **LTTng live source (`source.ctf.lttng-live`)**
+  Read CTF traces from the network using the `lttng-live` protocol.
+* **Dmesg source (`source.text.dmesg`)**
+  Read `dmesg`-style log files from the file-system or standard input.
+* **Trace trimmer (`filter.utils.trimmer`)**
+  Forward messages that occur within a specific time range.
+* **Trace muxer (`filter.utils.muxer`)**
+  Sort messages from multiple sources by time and output them through a single output port.
+* **Debug information filter (`filter.lttng-utils.debug-info`)**
+  Augment compatible events with debugging information.
+* **CTF file-system sink (`sink.ctf.fs`)**
+  Write CTF traces to the file-system.
+* **Text pretty-printer (`sink.text.pretty`)**
+  Pretty-print messages to the standard output or to a file.
+* **Dummy sink (`sink.utils.dummy`)**
+  Consume messages and discard them.
+* **Counter sink (`sink.utils.counter`)**
+  Count messages and print a statistic summary of each message type.
+* **Details sink (`sink.text.details`)**
+  Print messages with all available details.
 
 ## Reading of multiple CTF traces with same UUID
-Babeltrace now treats multiple input CTF traces that share the same UUID as a
-single trace. This is especially useful for reading traces produced with the
-tracing session rotation feature introduced by LTTng 2.11.
+
+Merge traces sharing a single UUID to a single trace. This is especially useful
+to read traces produced using the tracing session rotation feature introduced
+by LTTng 2.11.
 
 ## Developer mode
-When Babeltrace 2 is built in this mode, a large number of checks are added to
-enforce most preconditions required by the API.
+
+Verify your custom component classes by building and running Babeltrace 2 in
+**developer mode**. This special operation mode enables a large number of
+checks which enforce most preconditions required by the API.
 
 This makes it easier to develop and test new plugins while ensuring that they
 honour the contract of the various functions they use. Since components are now
@@ -254,32 +264,69 @@ configuration of Babeltrace 2 can eschew most precondition checks at run time,
 resulting in improved performance.
 
 To build Babeltrace 2 in this mode and test your own plugins, set the
-`BABELTRACE_DEV_MODE` environment variable `1` at configure time, for
-example:
+`BABELTRACE_DEV_MODE` environment variable `1` at configure time:
 
     BABELTRACE_DEV_MODE=1 ./configure
 
 ## Colors
+
 The Babeltrace CLI now use colors whenever the standard output is an
 interactive terminal. Plugin developers can use `bt_common_colors_supported()`
-to know is this feature is supported and use the `bt_common_color_*()`
-functions to change background and foreground colors as well as boldness.
+to know if this feature is supported and use the `bt_common_color_*()`
+functions to change background and foreground colors and boldness.
 
 ## LTTng live "subscribe" mode
-It is now possible to connect to a LTTng-Relay daemon in "subscribe" mode. To
-achieve this a `src.ctf.lttng-live` must be instantiated with the
-`session-not-found-action="continue"` parameter. In this mode, the source will
-attempt to consume an LTTng relay daemon's session and retry periodically if
-the session does not exist.
 
-This is in contrast with the default Babeltrace 1.X behaviour which will exit
-(with success) immediately if the session to consume does not exist on the
-LTTng relay daemon.
+Subscribe to a session hosted by an LTTng-Relay daemon using a
+`source.ctf.lttng-live` component class in **subscribe** mode.
+
+To subscribe to a session `source.ctf.lttng-live` must be instantiated with the
+`session-not-found-action="continue"` parameter. In this mode, the source will
+attempt to consume an LTTng-Relay daemon's session and attempt to re-connect
+periodically if the session did not exist.
+
+Note that in the default mode, the Babeltrace 1.x is used: exit (with success)
+immediately if the session to consume is unknown to the LTTng-Relay daemon.
 
 The following command demonstrates the use of this new mode:
 
-babeltrace2 net://relayhost/host/tgthost/my-session \
-           --params='session-not-found-action="continue"'
+    babeltrace2 net://relayhost/host/tgthost/my-session \
+                --params='session-not-found-action="continue"'
 
 ## API changes
-The API has been entirely been revamped.
+
+The API has been entirely been revamped since 1.x. The API introduced in
+the Babeltrace 2.x release series is trace-format agnostic and aims at
+making it easy to correctly manipulate traces and logs produced in a
+variety of formats.
+
+Babeltrace 2 still provides Python bindings through the `bt2` package
+exposing all features of the C API.
+
+# Upcoming
+
+As we enter the **release candidate** phase of Babeltrace's development
+cycle, we are hard at work putting the finishing touches on our way to the
+final release.
+
+We are inviting you to try this release candidate and report any problems
+you may encounter on the lttng-dev@lists.lttng.org mailing list or through
+bugs.lttng.org.
+
+## Documentation
+
+We are currently documenting the entire C API surface to make the development of
+new component classes as easy as possible. The documentation of the API, along
+with HTML-rendered manual pages, will be made available on Babeltrace's website.
+
+## Other tasks
+   * Improve test coverage
+   * Improve resilience to corrupted/malformed CTF traces
+   * Ensure python bindings support Python 3.4
+   * Minor internal clean-ups and bugs
+
+# Links
+
+**Project website** http://diamon.org/babeltrace/
+
+**Download link** https://www.efficios.com/files/babeltrace/babeltrace-2.0.0-rc1.tar.bz2
