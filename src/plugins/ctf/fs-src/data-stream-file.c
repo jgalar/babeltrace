@@ -6,6 +6,8 @@
  * Copyright 2010-2011 EfficiOS Inc. and Linux Foundation
  */
 
+#include "plugins/ctf/fs-src/lttng-index.h"
+#include <endian.h>
 #define BT_COMP_LOG_SELF_COMP (self_comp)
 #define BT_LOG_OUTPUT_LEVEL (log_level)
 #define BT_LOG_TAG "PLUGIN/SRC.CTF.FS/DS"
@@ -27,6 +29,9 @@
 #include "common/assert.h"
 #include "data-stream-file.h"
 #include <string.h>
+
+#include <sys/stat.h>
+#include <fcntl.h>
 
 static inline
 size_t remaining_mmap_bytes(struct ctf_fs_ds_file *ds_file)
@@ -805,18 +810,56 @@ struct ctf_fs_ds_index *build_index_from_stream_file(
 		struct ctf_fs_ds_file_info *file_info,
 		struct ctf_msg_iter *msg_iter)
 {
-	int ret;
+	int ret, fd;
 	struct ctf_fs_ds_index *index = NULL;
 	enum ctf_msg_iter_status iter_status = CTF_MSG_ITER_STATUS_OK;
 	off_t current_packet_offset_bytes = 0;
 	bt_self_component *self_comp = ds_file->self_comp;
 	bt_logging_level log_level = ds_file->log_level;
+	gchar *directory = NULL;
+	gchar *basename = NULL;
+	GString *index_basename = NULL;
+	gchar *index_file_path = NULL;
 
 	BT_COMP_LOGI("Indexing stream file %s", ds_file->file->path->str);
 
 	index = ctf_fs_ds_index_create(ds_file->log_level, ds_file->self_comp);
 	if (!index) {
 		goto error;
+	}
+
+	/* Look for index file in relative path index/name.idx. */
+	basename = g_path_get_basename(ds_file->file->path->str);
+	directory = g_path_get_dirname(ds_file->file->path->str);
+	index_basename = g_string_new(basename);
+	g_string_append(index_basename, ".idx");
+	index_file_path = g_build_filename(directory, "index",
+					index_basename->str, NULL);
+
+	fd = open(index_file_path, O_WRONLY | O_CREAT, 0644);
+	if (fd < 0) {
+		BT_COMP_LOGF_ERRNO("", "%s", index_file_path);
+		abort();
+	}
+
+	const uint32_t magic = htobe32(CTF_INDEX_MAGIC);
+	ret = write(fd, &magic, sizeof(magic));
+	if (ret < 0) {
+		abort();
+	}
+	const uint32_t major = htobe32(1);
+	ret = write(fd, &major, sizeof(major));
+	if (ret < 0) {
+		abort();
+	}
+	ret = write(fd, &major, sizeof(major));
+	if (ret < 0) {
+		abort();
+	}
+	const uint32_t size_idx  = htobe32(sizeof(struct ctf_packet_index));
+	ret = write(fd, &size_idx, sizeof(size_idx));
+	if (ret < 0) {
+		abort();
 	}
 
 	while (true) {
@@ -891,8 +934,26 @@ struct ctf_fs_ds_index *build_index_from_stream_file(
 			"next-packet-offset=%jd",
 			(intmax_t) (current_packet_offset_bytes - current_packet_size_bytes),
 			(intmax_t) current_packet_offset_bytes);
+
+		struct ctf_packet_index idx = {};
+		idx.offset = htobe64(index_entry->offset);
+		idx.packet_size = htobe64(index_entry->packet_size * 8);
+		idx.content_size = htobe64(props.exp_packet_content_size);
+		idx.timestamp_begin = htobe64(index_entry->timestamp_begin);
+		idx.timestamp_end = htobe64(index_entry->timestamp_end);
+		idx.events_discarded = htobe64(props.snapshots.discarded_events);
+		idx.stream_id = htobe64(props.stream_class_id);
+		idx.stream_instance_id = htobe64(props.data_stream_id);
+		idx.packet_seq_num = htobe64(props.snapshots.packets);
+		printf("damn son pkt_size %" PRIu64 ", pkt_content %" PRIu64 "\n", index_entry->packet_size, props.exp_packet_content_size);
+
+		ret = write(fd, &idx, sizeof(idx));
+		if (ret < 0) {
+			abort();
+		}
 	}
 
+	close(fd);
 end:
 	return index;
 
@@ -962,6 +1023,7 @@ struct ctf_fs_ds_index *ctf_fs_ds_file_build_index(
 		goto end;
 	}
 
+	puts("building from stream file");
 	BT_COMP_LOGI("Failed to build index from .index file; "
 		"falling back to stream indexing.");
 	index = build_index_from_stream_file(ds_file, file_info, msg_iter);

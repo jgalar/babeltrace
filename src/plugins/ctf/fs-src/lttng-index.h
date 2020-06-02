@@ -10,6 +10,7 @@
 #define LTTNG_INDEX_H
 
 #include "compat/limits.h"
+#include <stdint.h>
 
 #define CTF_INDEX_MAGIC 0xC1F1DCC1
 #define CTF_INDEX_MAJOR 1
