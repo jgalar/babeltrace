@@ -13,6 +13,11 @@ import socket
 import struct
 import sys
 import tempfile
+import json
+
+import colored_traceback
+
+colored_traceback.add_hook()
 
 
 class UnexpectedInput(RuntimeError):
@@ -1371,17 +1376,48 @@ class LttngTracingSessionDescriptor:
 
 def _tracing_session_descriptors_from_arg(string):
     # Format is:
-    #     NAME,ID,HOSTNAME,FREQ,CLIENTS,TRACEPATH[,TRACEPATH]...
-    parts = string.split(',')
-    name = parts[0]
-    tracing_session_id = int(parts[1])
-    hostname = parts[2]
-    live_timer_freq = int(parts[3])
-    client_count = int(parts[4])
-    traces = [LttngTrace(path) for path in parts[5:]]
-    return LttngTracingSessionDescriptor(
-        name, tracing_session_id, hostname, live_timer_freq, client_count, traces
-    )
+    # [
+    #   {
+    #     "name": "my-session",
+    #     "id": 17,
+    #     "hostname": "myhost",
+    #     "live-timer-freq": 1000000,
+    #     "client-count": 23,
+    #     "traces": [
+    #       {
+    #         "path": "PREFIX/lol"
+    #       },
+    #       {
+    #         "path": "PREFIX/meow/mix",
+    #       }
+    #     ]
+    #   }
+    # ]
+    params = json.loads(string)
+    sessions = []
+    try:
+        for session in params:
+            name = session['name']
+            tracing_session_id = session['id']
+            hostname = session['hostname']
+            live_timer_freq = session['live-timer-freq']
+            client_count = session['client-count']
+            traces = [LttngTrace(trace['path']) for trace in session['traces']]
+            sessions.append(
+                LttngTracingSessionDescriptor(
+                    name,
+                    tracing_session_id,
+                    hostname,
+                    live_timer_freq,
+                    client_count,
+                    traces,
+                )
+            )
+    except:
+        import traceback
+        traceback.print_exc()
+        raise
+    return sessions
 
 
 def _loglevel_parser(string):
@@ -1419,10 +1455,10 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         'sessions',
-        nargs="+",
-        metavar="SESSION",
+        nargs=1,
+        metavar="SESSIONS",
         type=_tracing_session_descriptors_from_arg,
-        help='A session configuration. There is no space after comma. Format is: NAME,ID,HOSTNAME,FREQ,CLIENTS,TRACEPATH[,TRACEPATH]....',
+        help='A JSON array of session configurations.',
     )
     parser.add_argument(
         '-h',
@@ -1435,7 +1471,7 @@ if __name__ == '__main__':
     args = parser.parse_args(args=remaining_args)
     try:
         LttngLiveServer(
-            args.port_filename, args.sessions, args.max_query_data_response_size
+            args.port_filename, args.sessions[0], args.max_query_data_response_size
         )
     except UnexpectedInput as exc:
         logging.error(str(exc))
