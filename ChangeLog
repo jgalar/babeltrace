@@ -1,3 +1,6 @@
+2021-02-24 Babeltrace 2.0.5
+	* Update working version to Babeltrace 2.0.5
+
 2021-02-23 Babeltrace 2.0.4 (National Banana Bread Day)
 	* Fix: macro name for "get supported mip versions method" attribute descriptor
 	* Fix: configure: support Autoconf 2.70
